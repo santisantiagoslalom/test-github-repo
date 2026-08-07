@@ -36,6 +36,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # TEMPORARY DEBUG STEP — remove once OIDC assume-role is working.
+      # Prints the actual "sub"/"aud"/"iss" claims GitHub is sending so you
+      # can compare them character-for-character against the IAM role's
+      # trust policy condition.
+      - name: Debug OIDC token claims
+        run: |
+          TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
+          PAYLOAD=$(echo "$TOKEN" | cut -d '.' -f2)
+          # base64url -> base64 padding fix, then decode
+          PAYLOAD="${PAYLOAD//-/+}"
+          PAYLOAD="${PAYLOAD//_/\/}"
+          MOD=$(( ${#PAYLOAD} % 4 ))
+          if [ $MOD -eq 2 ]; then PAYLOAD="${PAYLOAD}=="; elif [ $MOD -eq 3 ]; then PAYLOAD="${PAYLOAD}="; fi
+          echo "$PAYLOAD" | base64 -d | jq '{sub, aud, iss, repository, ref, event_name}'
+        env:
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
