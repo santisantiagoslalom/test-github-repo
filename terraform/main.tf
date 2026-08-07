@@ -35,6 +35,28 @@ resource "aws_s3_bucket_public_access_block" "example" {
   restrict_public_buckets = true
 }
 
+# Same local-backend adoption problem as the S3 bucket above: look up any
+# existing "test-github-sg" in this VPC and import it if found. Using a list
+# data source (not a single lookup) means this is a no-op — and doesn't error
+# — when the group hasn't been created yet.
+data "aws_security_groups" "existing_test_no_rules" {
+  filter {
+    name   = "group-name"
+    values = ["test-github-sg"]
+  }
+
+  filter {
+    name   = "vpc-id"
+    values = [var.vpc_id]
+  }
+}
+
+import {
+  for_each = toset(data.aws_security_groups.existing_test_no_rules.ids)
+  to       = aws_security_group.test_no_rules
+  id       = each.value
+}
+
 # Locked-down test security group — no ingress or egress rules defined,
 # so it denies all inbound traffic and all outbound traffic (Terraform
 # removes AWS's default "allow all egress" rule since it isn't declared here).
