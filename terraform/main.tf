@@ -38,14 +38,10 @@ resource "aws_s3_bucket_public_access_block" "example" {
 # Locked-down test security group — no ingress or egress rules defined,
 # so it denies all inbound traffic and all outbound traffic (Terraform
 # removes AWS's default "allow all egress" rule since it isn't declared here).
-data "aws_vpc" "default" {
-  default = true
-}
-
 resource "aws_security_group" "test_no_rules" {
   name        = "test-github-sg"
   description = "test-github-sg"
-  vpc_id      = data.aws_vpc.default.id
+  vpc_id      = var.vpc_id
 
   tags = {
     Name        = "test-github-sg"
