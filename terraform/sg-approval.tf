@@ -5,6 +5,14 @@
 
 # --- Upload bucket ---
 
+# ONE-TIME ADOPTION: local backend loses state between CI runs, so a partial
+# apply already created this resource before this run's (empty) state knew
+# about it. Safe to remove once applied successfully once.
+import {
+  to = aws_s3_bucket.sg_requests
+  id = "sg-requests-250251693220"
+}
+
 resource "aws_s3_bucket" "sg_requests" {
   bucket = "sg-requests-${data.aws_caller_identity.current.account_id}"
 
@@ -38,6 +46,12 @@ resource "aws_s3_bucket_notification" "sg_requests" {
 
 # --- Request tracking table ---
 
+# ONE-TIME ADOPTION: see note on aws_s3_bucket.sg_requests above.
+import {
+  to = aws_dynamodb_table.sg_requests
+  id = "sg-approval-requests"
+}
+
 resource "aws_dynamodb_table" "sg_requests" {
   name         = "sg-approval-requests"
   billing_mode = "PAY_PER_REQUEST"
@@ -56,6 +70,12 @@ resource "aws_dynamodb_table" "sg_requests" {
 # --- GitHub PAT used by approval_handler to open pull requests ---
 # Populate the value out-of-band (not via Terraform) so the token never lands in state or VCS:
 #   aws secretsmanager put-secret-value --secret-id sg-approval/github-token --secret-string <PAT>
+
+# ONE-TIME ADOPTION: see note on aws_s3_bucket.sg_requests above.
+import {
+  to = aws_secretsmanager_secret.github_token
+  id = "sg-approval/github-token"
+}
 
 resource "aws_secretsmanager_secret" "github_token" {
   name        = "sg-approval/github-token"
@@ -87,6 +107,12 @@ data "archive_file" "approval_handler" {
 }
 
 # --- IAM: csv_validator ---
+
+# ONE-TIME ADOPTION: see note on aws_s3_bucket.sg_requests above.
+import {
+  to = aws_iam_role.csv_validator
+  id = "sg-approval-csv-validator"
+}
 
 resource "aws_iam_role" "csv_validator" {
   name = "sg-approval-csv-validator"
@@ -160,6 +186,12 @@ resource "aws_lambda_permission" "allow_s3_invoke_validator" {
 }
 
 # --- IAM: approval_handler ---
+
+# ONE-TIME ADOPTION: see note on aws_s3_bucket.sg_requests above.
+import {
+  to = aws_iam_role.approval_handler
+  id = "sg-approval-handler"
+}
 
 resource "aws_iam_role" "approval_handler" {
   name = "sg-approval-handler"
