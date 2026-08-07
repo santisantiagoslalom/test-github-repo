@@ -158,6 +158,12 @@ resource "aws_iam_role_policy" "csv_validator" {
   })
 }
 
+# ONE-TIME ADOPTION: see note on aws_s3_bucket.sg_requests above.
+import {
+  to = aws_lambda_function.csv_validator
+  id = "sg-approval-csv-validator"
+}
+
 resource "aws_lambda_function" "csv_validator" {
   function_name    = "sg-approval-csv-validator"
   role             = aws_iam_role.csv_validator.arn
@@ -175,6 +181,12 @@ resource "aws_lambda_function" "csv_validator" {
       SENDER_EMAIL   = var.sender_email
     }
   }
+}
+
+# ONE-TIME ADOPTION: see note on aws_s3_bucket.sg_requests above.
+import {
+  to = aws_lambda_permission.allow_s3_invoke_validator
+  id = "sg-approval-csv-validator/AllowS3Invoke"
 }
 
 resource "aws_lambda_permission" "allow_s3_invoke_validator" {
@@ -232,6 +244,12 @@ resource "aws_iam_role_policy" "approval_handler" {
   })
 }
 
+# ONE-TIME ADOPTION: see note on aws_s3_bucket.sg_requests above.
+import {
+  to = aws_lambda_function.approval_handler
+  id = "sg-approval-handler"
+}
+
 resource "aws_lambda_function" "approval_handler" {
   function_name    = "sg-approval-handler"
   role             = aws_iam_role.approval_handler.arn
@@ -282,6 +300,12 @@ resource "aws_apigatewayv2_stage" "sg_approval" {
   api_id      = aws_apigatewayv2_api.sg_approval.id
   name        = "$default"
   auto_deploy = true
+}
+
+# ONE-TIME ADOPTION: see note on aws_s3_bucket.sg_requests above.
+import {
+  to = aws_lambda_permission.allow_apigw_invoke_approval_handler
+  id = "sg-approval-handler/AllowAPIGatewayInvoke"
 }
 
 resource "aws_lambda_permission" "allow_apigw_invoke_approval_handler" {
