@@ -8,17 +8,16 @@ terraform {
     }
   }
 
-  # Local backend for now (state file stored in terraform/terraform.tfstate,
-  # which is gitignored). Once you're comfortable, migrate to a remote
-  # backend (S3 bucket + DynamoDB lock table) so CI runs share state safely:
-  #
-  # backend "s3" {
-  #   bucket         = "my-terraform-state-bucket"
-  #   key            = "test-github-repo/terraform.tfstate"
-  #   region         = "us-west-2"
-  #   dynamodb_table = "terraform-locks"
-  #   encrypt        = true
-  # }
+  # Remote backend: state is stored in S3 (bucket created by
+  # terraform/bootstrap/) with DynamoDB-based locking so CI runs share
+  # state safely instead of losing it every run.
+  backend "s3" {
+    bucket         = "test-github-tf-state-250251693220"
+    key            = "test-github-repo/terraform.tfstate"
+    region         = "us-west-2"
+    dynamodb_table = "terraform-locks"
+    encrypt        = true
+  }
 }
 
 provider "aws" {

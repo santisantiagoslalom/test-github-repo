@@ -1,0 +1,44 @@
+name: Bootstrap Terraform State Backend
+
+# Manual-only, run ONCE to create the S3 bucket + DynamoDB table used as the
+# remote backend for terraform/. Safe to re-run (idempotent), but shouldn't
+# be needed again after the first successful run.
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-west-2
+  TF_WORKING_DIR: terraform/bootstrap
+
+jobs:
+  bootstrap:
+    name: Bootstrap State Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::250251693220:role/test-github-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false

@@ -9,9 +9,3 @@ variable "environment" {
   type        = string
   default     = "dev"
 }
-
-variable "vpc_id" {
-  description = "VPC ID to create the test security group in"
-  type        = string
-  default     = "vpc-00190b61804682167"
-}
