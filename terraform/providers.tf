@@ -8,16 +8,17 @@ terraform {
     }
   }
 
-  # Remote backend: state is stored in S3 (bucket created by
-  # terraform/bootstrap/) with DynamoDB-based locking so CI runs share
-  # state safely instead of losing it every run.
-  backend "s3" {
-    bucket         = "test-github-tf-state-250251693220"
-    key            = "test-github-repo/terraform.tfstate"
-    region         = "us-west-2"
-    dynamodb_table = "terraform-locks"
-    encrypt        = true
-  }
+  # Local backend for now (state file stored in terraform/terraform.tfstate,
+  # which is gitignored and lost at the end of each CI run). Once the
+  # bootstrap workflow has created the state bucket, switch back to:
+  #
+  # backend "s3" {
+  #   bucket       = "test-github-tf-state-250251693220"
+  #   key          = "test-github-repo/terraform.tfstate"
+  #   region       = "us-west-2"
+  #   use_lockfile = true
+  #   encrypt      = true
+  # }
 }
 
 provider "aws" {
