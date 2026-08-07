@@ -23,6 +23,12 @@ permissions:
 env:
   AWS_REGION: us-west-2
   TF_WORKING_DIR: terraform
+  # Required vars for the sg-approval workflow (no defaults in variables.tf).
+  # Set SG_APPROVER_EMAIL / SG_SENDER_EMAIL under Settings > Secrets and
+  # variables > Actions > Variables. github_owner is derived automatically.
+  TF_VAR_approver_email: ${{ vars.SG_APPROVER_EMAIL }}
+  TF_VAR_sender_email: ${{ vars.SG_SENDER_EMAIL }}
+  TF_VAR_github_owner: ${{ github.repository_owner }}
 
 jobs:
   terraform:
