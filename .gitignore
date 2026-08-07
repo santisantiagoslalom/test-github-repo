@@ -25,3 +25,6 @@ override.tf.json
 # Ignore CLI configuration files
 .terraformrc
 terraform.rc
+
+# Ignore packaged Lambda zips built by archive_file (rebuilt on every apply)
+terraform/lambda/*.zip
