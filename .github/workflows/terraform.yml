@@ -89,6 +89,9 @@ jobs:
 
           if [ "$import_exit" -eq 0 ]; then
             echo "Imported existing API Gateway Lambda permission into the local Terraform state."
+          # Terraform currently reports an absent remote object via CLI text
+          # rather than a dedicated exit code. Re-validate these patterns when
+          # upgrading Terraform beyond the v1.9.x series used in CI.
           elif printf '%s' "$import_output" | grep -Eq 'Cannot import non-existent remote object|no object exists with the given id'; then
             echo "API Gateway Lambda permission does not exist yet; Terraform will create it if needed."
           else
@@ -101,12 +104,11 @@ jobs:
 
       - name: Terraform Plan
         id: plan
+        shell: bash
         run: |
           set +e
-          set -o pipefail
           terraform plan -no-color -input=false -detailed-exitcode 2>&1 | tee plan_output.txt
           pipe_status=("${PIPESTATUS[@]}")
-          set +o pipefail
           set -e
           exit_code=${pipe_status[0]}
           tee_exit=${pipe_status[1]}
