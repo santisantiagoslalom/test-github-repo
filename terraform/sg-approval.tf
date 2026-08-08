@@ -45,9 +45,13 @@ resource "aws_s3_bucket_notification" "sg_requests" {
 }
 
 # --- Request tracking table ---
-# (No import block here — the table was manually deleted, so Terraform
-# should just create it fresh. Re-add an import block only if the real
-# table already exists again and a fresh apply reports it as a duplicate.)
+
+# ONE-TIME ADOPTION: recreated after a manual delete; see note on
+# aws_s3_bucket.sg_requests above for why this exists (local backend).
+import {
+  to = aws_dynamodb_table.sg_requests
+  id = "sg-approval-requests"
+}
 
 resource "aws_dynamodb_table" "sg_requests" {
   name         = "sg-approval-requests"
