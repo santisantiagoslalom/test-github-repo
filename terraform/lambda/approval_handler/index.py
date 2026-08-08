@@ -23,7 +23,8 @@ def handler(event, context):
     query_params = event.get("queryStringParameters") or {}
     request_id = path_params.get("request_id")
     token = query_params.get("token")
-    action = "approve" if event.get("routeKey", "").startswith("GET /approve") else "reject"
+    method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
+    action = "approve" if "/approve" in event.get("routeKey", "") else "reject"
 
     table = dynamodb.Table(TABLE_NAME)
     item = table.get_item(Key={"request_id": request_id}).get("Item")
@@ -32,6 +33,15 @@ def handler(event, context):
         return respond(404, "Request not found.")
     if item.get("token") != token:
         return respond(403, "Invalid or expired approval link.")
+
+    # GET only renders a confirmation page — it must stay side-effect-free
+    # because email security scanners (e.g. Safe Links) auto-fetch every URL
+    # in a message, which would otherwise silently approve/reject on delivery.
+    if method == "GET":
+        if item.get("status") != "PENDING":
+            return respond(409, f"Request already {item.get('status')}.")
+        return respond_html(200, render_confirm_page(request_id, token, action))
+
     if item.get("status") != "PENDING":
         return respond(409, f"Request already {item.get('status')}.")
 
@@ -42,6 +52,7 @@ def handler(event, context):
         ExpressionAttributeNames={"#s": "status"},
         ExpressionAttributeValues={":s": new_status},
     )
+
 
     if new_status == "APPROVED":
         try:
@@ -60,6 +71,34 @@ def respond(status_code, message):
         "headers": {"Content-Type": "text/plain"},
         "body": message,
     }
+
+
+def respond_html(status_code, html):
+    return {
+        "statusCode": status_code,
+        "headers": {"Content-Type": "text/html"},
+        "body": html,
+    }
+
+
+def render_confirm_page(request_id, token, action):
+    label = "Approve" if action == "approve" else "Reject"
+    return textwrap.dedent(
+        f"""
+        <!doctype html>
+        <html>
+          <body style="font-family: sans-serif; max-width: 480px; margin: 3rem auto;">
+            <h2>{label} security group request?</h2>
+            <p><code>{request_id}</code></p>
+            <form method="POST" action="/{action}/{request_id}?token={token}">
+              <button type="submit" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                Confirm {label}
+              </button>
+            </form>
+          </body>
+        </html>
+        """
+    ).strip("\n")
 
 
 def get_github_token():

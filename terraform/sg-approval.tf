@@ -293,6 +293,21 @@ resource "aws_apigatewayv2_route" "reject" {
   target    = "integrations/${aws_apigatewayv2_integration.approval_handler.id}"
 }
 
+# POST routes perform the actual mutation, triggered by the confirmation
+# page's button — GET stays side-effect-free so email link scanners that
+# auto-fetch URLs can't silently approve/reject on delivery.
+resource "aws_apigatewayv2_route" "approve_confirm" {
+  api_id    = aws_apigatewayv2_api.sg_approval.id
+  route_key = "POST /approve/{request_id}"
+  target    = "integrations/${aws_apigatewayv2_integration.approval_handler.id}"
+}
+
+resource "aws_apigatewayv2_route" "reject_confirm" {
+  api_id    = aws_apigatewayv2_api.sg_approval.id
+  route_key = "POST /reject/{request_id}"
+  target    = "integrations/${aws_apigatewayv2_integration.approval_handler.id}"
+}
+
 resource "aws_apigatewayv2_stage" "sg_approval" {
   api_id      = aws_apigatewayv2_api.sg_approval.id
   name        = "$default"
