@@ -149,14 +149,14 @@ def render_terraform(request_id, rules):
             f"""
             # Auto-generated from CSV approval request {request_id}. Do not edit by hand.
             resource "aws_security_group" "sg_request_{resource_name}" {{
-              name        = "sg-request-{request_id}"
+              name        = "csv-request-{request_id}"
               description = "Approved via CSV upload workflow (request {request_id})"
               vpc_id      = var.vpc_id
 
               {rule_blocks}
 
               tags = {{
-                Name      = "sg-request-{request_id}"
+                Name      = "csv-request-{request_id}"
                 RequestId = "{request_id}"
               }}
             }}
