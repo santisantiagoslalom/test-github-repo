@@ -80,6 +80,9 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Adopt existing API Gateway Lambda permission
+        run: terraform import aws_lambda_permission.allow_apigw_invoke_approval_handler sg-approval-handler/AllowAPIGatewayInvoke >/dev/null 2>&1 || true
+
       - name: Terraform Validate
         run: terraform validate
 
