@@ -78,7 +78,7 @@ jobs:
         continue-on-error: true
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -input=false
 
       - name: Adopt existing API Gateway Lambda permission
         run: |
