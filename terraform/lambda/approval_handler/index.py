@@ -2,6 +2,7 @@ import base64
 import json
 import os
 import textwrap
+import urllib.error
 import urllib.request
 
 import boto3
@@ -115,8 +116,15 @@ def github_request(method, path, payload=None):
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Authorization", f"Bearer {get_github_token()}")
     req.add_header("Accept", "application/vnd.github+json")
-    with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read().decode())
+    # GitHub's API returns 403 Forbidden if no User-Agent header is present.
+    req.add_header("User-Agent", "sg-approval-workflow")
+    req.add_header("X-GitHub-Api-Version", "2022-11-28")
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode(errors="replace")
+        raise RuntimeError(f"GitHub API {method} {path} failed: {exc.code} {exc.reason} - {body}") from exc
 
 
 def render_terraform(request_id, rules):
