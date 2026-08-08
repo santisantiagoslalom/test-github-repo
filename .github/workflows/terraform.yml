@@ -80,15 +80,57 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      - name: Adopt existing API Gateway Lambda permission
+        run: |
+          set +e
+          import_output=$(terraform import aws_lambda_permission.allow_apigw_invoke_approval_handler sg-approval-handler/AllowAPIGatewayInvoke 2>&1)
+          import_exit=$?
+          set -e
+
+          if [ "$import_exit" -eq 0 ]; then
+            echo "Imported existing API Gateway Lambda permission into the local Terraform state."
+          # Terraform currently reports an absent remote object via CLI text
+          # rather than a dedicated exit code. Re-validate these patterns when
+          # upgrading Terraform beyond the v1.9.x series used in CI.
+          elif printf '%s' "$import_output" | grep -Eq 'Cannot import non-existent remote object|no object exists with the given id'; then
+            echo "API Gateway Lambda permission does not exist yet; Terraform will create it if needed."
+          else
+            printf '%s\n' "$import_output"
+            exit "$import_exit"
+          fi
+
       - name: Terraform Validate
         run: terraform validate
 
       - name: Terraform Plan
         id: plan
+        shell: bash
         run: |
-          set -o pipefail
-          terraform plan -no-color -input=false | tee plan_output.txt
-        continue-on-error: true
+          set +e
+          terraform plan -no-color -input=false -detailed-exitcode 2>&1 | tee plan_output.txt
+          pipe_status=("${PIPESTATUS[@]}")
+          set -e
+          exit_code=${pipe_status[0]}
+          tee_exit=${pipe_status[1]}
+
+          if [ "$tee_exit" -ne 0 ]; then
+            echo "Failed to write Terraform plan output."
+            exit "$tee_exit"
+          fi
+
+          case "$exit_code" in
+            0)
+              echo "summary=no changes" >> "$GITHUB_OUTPUT"
+              echo "Terraform plan completed with no changes."
+              ;;
+            2)
+              echo "summary=changes pending" >> "$GITHUB_OUTPUT"
+              echo "Terraform plan completed with pending changes."
+              ;;
+            *)
+              exit "$exit_code"
+              ;;
+          esac
 
       - name: Comment Plan on PR
         if: github.event_name == 'pull_request'
@@ -110,7 +152,7 @@ jobs:
             }
 
             const output = `#### Terraform Format 🖌 \`${{ steps.fmt.outcome }}\`
-            #### Terraform Plan 📖 \`${{ steps.plan.outcome }}\`
+            #### Terraform Plan 📖 \`${{ steps.plan.outputs.summary }}\`
 
             <details><summary>Show Plan</summary>
 
@@ -126,10 +168,6 @@ jobs:
               repo: context.repo.repo,
               body: output
             });
-
-      - name: Fail if Plan Failed
-        if: steps.plan.outcome == 'failure'
-        run: exit 1
 
       - name: Terraform Apply
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'

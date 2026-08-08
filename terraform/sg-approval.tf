@@ -318,12 +318,6 @@ resource "aws_apigatewayv2_stage" "sg_approval" {
   auto_deploy = true
 }
 
-# ONE-TIME ADOPTION: see note on aws_s3_bucket.sg_requests above.
-import {
-  to = aws_lambda_permission.allow_apigw_invoke_approval_handler
-  id = "sg-approval-handler/AllowAPIGatewayInvoke"
-}
-
 resource "aws_lambda_permission" "allow_apigw_invoke_approval_handler" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
