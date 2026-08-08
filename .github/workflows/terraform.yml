@@ -117,7 +117,6 @@ jobs:
               echo "Terraform plan completed with pending changes."
               ;;
             *)
-              cat plan_output.txt
               exit "$exit_code"
               ;;
           esac
