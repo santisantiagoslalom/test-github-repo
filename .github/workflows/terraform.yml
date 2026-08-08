@@ -88,9 +88,6 @@ jobs:
         run: |
           set -o pipefail
           terraform plan -no-color -input=false | tee plan_output.txt
-          echo "stdout<<EOF" >> "$GITHUB_OUTPUT"
-          cat plan_output.txt >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: Comment Plan on PR
@@ -98,13 +95,27 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Read the plan directly from disk instead of piping it through
+            // $GITHUB_OUTPUT — large plans can silently blow past GitHub's
+            // environment-file size limit and kill the step with no error text.
+            const planPath = path.join(process.env.TF_WORKING_DIR, 'plan_output.txt');
+            let planOutput = fs.readFileSync(planPath, 'utf8');
+
+            const maxLen = 60000; // stay under GitHub's ~65536 comment body limit
+            if (planOutput.length > maxLen) {
+              planOutput = planOutput.slice(0, maxLen) + '\n\n... (truncated, see full log in the Actions run)';
+            }
+
             const output = `#### Terraform Format 🖌 \`${{ steps.fmt.outcome }}\`
             #### Terraform Plan 📖 \`${{ steps.plan.outcome }}\`
 
             <details><summary>Show Plan</summary>
 
             \`\`\`
-            ${{ steps.plan.outputs.stdout }}
+            ${planOutput}
             \`\`\`
 
             </details>`;
