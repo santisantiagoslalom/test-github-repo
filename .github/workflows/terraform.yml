@@ -83,6 +83,15 @@ jobs:
       - name: Adopt existing API Gateway Lambda permission
         run: |
           set +e
+
+          # State now persists (S3 backend), so skip re-importing if this
+          # run's state already tracks the resource - re-running import
+          # against an already-managed address is itself an error.
+          if terraform state show aws_lambda_permission.allow_apigw_invoke_approval_handler >/dev/null 2>&1; then
+            echo "API Gateway Lambda permission already tracked in state; skipping import."
+            exit 0
+          fi
+
           import_output=$(terraform import aws_lambda_permission.allow_apigw_invoke_approval_handler sg-approval-handler/AllowAPIGatewayInvoke 2>&1)
           import_exit=$?
           set -e
