@@ -81,7 +81,20 @@ jobs:
         run: terraform init
 
       - name: Adopt existing API Gateway Lambda permission
-        run: terraform import aws_lambda_permission.allow_apigw_invoke_approval_handler sg-approval-handler/AllowAPIGatewayInvoke >/dev/null 2>&1 || true
+        run: |
+          set +e
+          import_output=$(terraform import aws_lambda_permission.allow_apigw_invoke_approval_handler sg-approval-handler/AllowAPIGatewayInvoke 2>&1)
+          import_exit=$?
+          set -e
+
+          if [ "$import_exit" -eq 0 ]; then
+            echo "Imported existing API Gateway Lambda permission into the local Terraform state."
+          elif printf '%s' "$import_output" | grep -Eq 'Cannot import non-existent remote object|no object exists with the given id'; then
+            echo "API Gateway Lambda permission does not exist yet; Terraform will create it if needed."
+          else
+            printf '%s\n' "$import_output"
+            exit "$import_exit"
+          fi
 
       - name: Terraform Validate
         run: terraform validate
@@ -90,8 +103,8 @@ jobs:
         id: plan
         run: |
           set +e
-          terraform plan -no-color -input=false -detailed-exitcode > plan_output.txt 2>&1
-          exit_code=$?
+          terraform plan -no-color -input=false -detailed-exitcode 2>&1 | tee plan_output.txt
+          exit_code=${PIPESTATUS[0]}
           set -e
 
           case "$exit_code" in
