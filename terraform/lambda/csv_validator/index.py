@@ -2,6 +2,7 @@ import csv
 import io
 import json
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -34,6 +35,7 @@ def handler(event, context):
         request_id = str(uuid.uuid4())
         token = str(uuid.uuid4())
         status = "INVALID" if errors else "PENDING"
+        sg_name = derive_sg_name(key, request_id)
 
         table.put_item(
             Item={
@@ -41,6 +43,7 @@ def handler(event, context):
                 "token": token,
                 "status": status,
                 "source_key": key,
+                "sg_name": sg_name,
                 "rules": rules,
                 "errors": errors,
                 "created_at": datetime.now(timezone.utc).isoformat(),
@@ -58,6 +61,7 @@ def handler(event, context):
         reject_url = f"{API_BASE_URL}/reject/{request_id}?token={token}"
         body = (
             f"A new security group request ({request_id}) was uploaded from s3://{bucket}/{key}.\n\n"
+            f"Security group name: {sg_name}\n\n"
             f"Proposed rules:\n{json.dumps(rules, indent=2)}\n\n"
             f"Approve: {approve_url}\n"
             f"Reject:  {reject_url}\n"
@@ -65,6 +69,20 @@ def handler(event, context):
         send_email(subject=f"Security group approval needed: {request_id}", body=body)
 
     return {"statusCode": 200}
+
+
+def derive_sg_name(key, request_id):
+    """Derive an AWS-valid security group name from the uploaded CSV filename,
+    e.g. incoming/app-sg-test.csv -> app-sg-test. Falls back to a
+    request-id-based name if the filename doesn't yield a usable name."""
+    base = os.path.splitext(os.path.basename(key))[0]
+    name = re.sub(r"[^a-zA-Z0-9-]", "-", base).strip("-").lower()
+    name = re.sub(r"-+", "-", name)
+
+    if not name or name.startswith("sg-"):  # AWS reserves the "sg-" prefix
+        name = f"csv-request-{request_id}"
+
+    return name[:255]
 
 
 def parse_rules(content):

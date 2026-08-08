@@ -57,7 +57,8 @@ def handler(event, context):
 
     if new_status == "APPROVED":
         try:
-            pr_url = create_pull_request(request_id, item["rules"])
+            sg_name = item.get("sg_name") or f"csv-request-{request_id}"
+            pr_url = create_pull_request(request_id, sg_name, item["rules"])
             return respond(200, f"Request approved. Pull request opened: {pr_url}")
         except Exception as exc:
             # Status is already APPROVED in DynamoDB; surface the PR failure for manual follow-up.
@@ -127,7 +128,7 @@ def github_request(method, path, payload=None):
         raise RuntimeError(f"GitHub API {method} {path} failed: {exc.code} {exc.reason} - {body}") from exc
 
 
-def render_terraform(request_id, rules):
+def render_terraform(request_id, sg_name, rules):
     def block(rule):
         return textwrap.dedent(
             f"""
@@ -149,14 +150,14 @@ def render_terraform(request_id, rules):
             f"""
             # Auto-generated from CSV approval request {request_id}. Do not edit by hand.
             resource "aws_security_group" "sg_request_{resource_name}" {{
-              name        = "csv-request-{request_id}"
+              name        = "{sg_name}"
               description = "Approved via CSV upload workflow (request {request_id})"
               vpc_id      = var.vpc_id
 
               {rule_blocks}
 
               tags = {{
-                Name      = "csv-request-{request_id}"
+                Name      = "{sg_name}"
                 RequestId = "{request_id}"
               }}
             }}
@@ -166,7 +167,7 @@ def render_terraform(request_id, rules):
     )
 
 
-def create_pull_request(request_id, rules):
+def create_pull_request(request_id, sg_name, rules):
     base_ref = github_request(
         "GET", f"/repos/{GITHUB_OWNER}/{GITHUB_REPO}/git/ref/heads/{GITHUB_BASE_BRANCH}"
     )
@@ -182,7 +183,7 @@ def create_pull_request(request_id, rules):
     # Must live directly under terraform/ so the existing pipeline's `terraform apply`
     # (working-directory: terraform) picks it up automatically.
     file_path = f"terraform/sg-{request_id}.tf"
-    content = render_terraform(request_id, rules)
+    content = render_terraform(request_id, sg_name, rules)
     github_request(
         "PUT",
         f"/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{file_path}",
